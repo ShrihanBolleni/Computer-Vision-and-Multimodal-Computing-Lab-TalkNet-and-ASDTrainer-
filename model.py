@@ -30,17 +30,43 @@ class model(nn.Module):
         self.loss_fn = nn.CrossEntropyLoss()
         
     def createVisualModel(self):
-        self.visualModel = nn.Sequential(nn.Flatten(), nn.Linear(112*112, 512), nn.ReLU(), nn.Linear(512, 256), nn.ReLU(), nn.Linear(256, 128))
+        self.visualModel = nn.Sequential(
+            nn.Conv2d(1, 32, 3, padding=1),
+            nn.MaxPool2d(2,(2, 2)),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.MaxPool2d(2,(2, 2)),
+            nn.Conv2d(64, 64, 3, padding=1),
+            nn.MaxPool2d(2,(2, 2)),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.Flatten()
+        )
 
     def createAudioModel(self):
-        self.audioModel = nn.Sequential(nn.Flatten(), nn.Linear(299*13, 512), nn.ReLU(), nn.Linear(512, 256), nn.ReLU(), nn.Linear(256, 128))
+        self.audioModel = nn.Sequential(
+            nn.Conv2d(1, 32, 3, padding=1),
+            nn.MaxPool2d(2,(2, 1)),
+            nn.Conv2d(32, 64, 3, padding=1),
+            nn.MaxPool2d(2,(2, 1)),
+            nn.Conv2d(64, 64, 3, padding=1),
+            nn.MaxPool2d(2,(2, 1)),
+            nn.Conv2d(64, 64, 3, padding=1),
+            nn.MaxPool2d(2,(2, 2)),
+            nn.Conv2d(64, 128, 3, padding=1),
+            nn.Flatten()
+        )
 
 
     def createFusionModel(self):
         pass
 
     def createFCModel(self):
-        self.fcModel = nn.Sequential(nn.Linear(256, 128), nn.ReLU(), nn.Linear(128,64), nn.ReLU(), nn.Linear(64, 2))
+        self.fcModel = nn.Sequential(
+            nn.Linear(36608, 512),
+            nn.ReLU(),
+            nn.Linear(512, 128),
+            nn.ReLU(),
+            nn.Linear(128,2)
+        )
     
     def train_network(self, loader, epoch, **kwargs):
         
