@@ -103,6 +103,7 @@ def load_visual(data, dataPath, numImages, visualAug):
         face = cv2.imread(faceFile)
         face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
         face = cv2.resize(face, (H,H))
+        # face = (face - 128)/128
         if augType == 'orig':
             faces.append(face)
         elif augType == 'flip':
@@ -112,6 +113,8 @@ def load_visual(data, dataPath, numImages, visualAug):
         elif augType == 'rotate':
             faces.append(cv2.warpAffine(face, M, (H,H)))
     faces = numpy.array(faces)
+    faces = faces.astype(np.float64)
+    faces = (faces - 128)/128
     faces = np.pad(faces, ((shortage, excess), (0,0), (0,0)))
     return faces
 

@@ -4,6 +4,31 @@ import torch.nn as nn
 import torch.nn.functional as F
 import time, tqdm
 
+class ConvBlock(nn.Module):
+    def __init__(self,in_channels,out_channels,kernel_sizes,last_block=False,stride=(1,1),padding=(1,1)):
+        super(ConvBlock,self).__init__()
+        self.last_block=last_block
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.relu1 = nn.ReLU()
+        self.bn1 = nn.BatchNorm2d(num_features=out_channels)
+        self.conv2 = nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.relu2 = nn.ReLU()
+        self.bn2 = nn.BatchNorm2d(num_features=out_channels)
+        self.conv3 = nn.Conv2d(in_channels=out_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
+        if not self.last_block:
+            self.relu3 = nn.ReLU()
+            self.bn3 = nn.BatchNorm2d(num_features=out_channels)
+
+        def forward(self, x):
+            x = self.bn1(self.relu1(self.conv1(x)))
+            x = self.bn2(self.relu2(self.conv2(x)))
+            x = self.conv3(x)
+            if self.last_block:
+                return x
+            else:
+                x = self.bn3(self.relu3(x))
+                return x
+
 class model(nn.Module):
     def __init__(self, lr=0.0001, lrDecay=0.95, device='gpu', **kwargs):
         super(model, self).__init__()
@@ -31,27 +56,27 @@ class model(nn.Module):
         
     def createVisualModel(self):
         self.visualModel = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
-            nn.MaxPool2d(2,(2, 2)),
-            nn.Conv2d(32, 64, 3, padding=1),
-            nn.MaxPool2d(2,(2, 2)),
-            nn.Conv2d(64, 64, 3, padding=1),
-            nn.MaxPool2d(2,(2, 2)),
-            nn.Conv2d(64, 128, 3, padding=1),
+            ConvBlock(1, 32, 3),
+            nn.MaxPool2d(2),
+            ConvBlock(32, 64, 3),
+            nn.MaxPool2d(2),
+            ConvBlock(64, 64, 3),
+            nn.MaxPool2d(2),
+            ConvBlock(64, 128, 3, last_block=True),
             nn.Flatten()
         )
 
     def createAudioModel(self):
         self.audioModel = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1),
+            ConvBlock(1, 32, 3),
             nn.MaxPool2d(2,(2, 1)),
-            nn.Conv2d(32, 64, 3, padding=1),
+            ConvBlock(32, 64, 3),
             nn.MaxPool2d(2,(2, 1)),
-            nn.Conv2d(64, 64, 3, padding=1),
+            ConvBlock(64, 64, 3),
             nn.MaxPool2d(2,(2, 1)),
-            nn.Conv2d(64, 64, 3, padding=1),
-            nn.MaxPool2d(2,(2, 2)),
-            nn.Conv2d(64, 128, 3, padding=1),
+            ConvBlock(64, 64, 3),
+            nn.MaxPool2d(2),
+            ConvBlock(64, 64, 3, last_block=True),
             nn.Flatten()
         )
 
@@ -61,10 +86,12 @@ class model(nn.Module):
 
     def createFCModel(self):
         self.fcModel = nn.Sequential(
-            nn.Linear(36608, 512),
+            nn.Linear(30848, 512),
             nn.ReLU(),
+            nn.Dropout(0.3),
             nn.Linear(512, 128),
             nn.ReLU(),
+            nn.Dropout(0.3),
             nn.Linear(128,2)
         )
     
