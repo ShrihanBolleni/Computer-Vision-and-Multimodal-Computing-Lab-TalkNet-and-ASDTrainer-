@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import time, tqdm
 
 class ConvBlock(nn.Module):
-    def __init__(self,in_channels,out_channels,kernel_sizes,last_block=False,stride=(1,1),padding=(1,1)):
+    def __init__(self,in_channels,out_channels,kernel_size,last_block=False,stride=(1,1),padding=(1,1)):
         super(ConvBlock,self).__init__()
         self.last_block=last_block
         self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
@@ -19,15 +19,15 @@ class ConvBlock(nn.Module):
             self.relu3 = nn.ReLU()
             self.bn3 = nn.BatchNorm2d(num_features=out_channels)
 
-        def forward(self, x):
-            x = self.bn1(self.relu1(self.conv1(x)))
-            x = self.bn2(self.relu2(self.conv2(x)))
-            x = self.conv3(x)
-            if self.last_block:
-                return x
-            else:
-                x = self.bn3(self.relu3(x))
-                return x
+    def forward(self, x):
+        x = self.bn1(self.relu1(self.conv1(x)))
+        x = self.bn2(self.relu2(self.conv2(x)))
+        x = self.conv3(x)
+        if self.last_block:
+            return x
+        else:
+            x = self.bn3(self.relu3(x))
+            return x
 
 class model(nn.Module):
     def __init__(self, lr=0.0001, lrDecay=0.95, device='gpu', **kwargs):
