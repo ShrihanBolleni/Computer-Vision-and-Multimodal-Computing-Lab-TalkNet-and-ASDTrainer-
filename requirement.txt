@@ -1,0 +1,16 @@
+torch>=1.6.0
+torchaudio>=0.6.0
+torchvision
+numpy
+pandas
+scipy
+scikit-learn
+tqdm
+scenedetect
+opencv-python
+python_speech_features
+ffmpeg
+gdown
+youtube-dl
+tensorboard
+matplotlib

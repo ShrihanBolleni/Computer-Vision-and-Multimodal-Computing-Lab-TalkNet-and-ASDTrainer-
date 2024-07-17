@@ -4,8 +4,8 @@ from torchvision.transforms import RandomCrop
 import csv
 import numpy as np
 
-def generate_audio_set(dataPath, line, audioLength):
 
+def generate_audio_set(dataPath, line, audioLength):
     data = line.split(',')
     videoName = data[0]
     dataName = data[0]
@@ -15,9 +15,9 @@ def generate_audio_set(dataPath, line, audioLength):
     halfAudioLength = audioLength/2
 
     samplingRate, audio = wavfile.read(audioFilePath)
-    if(len(audio.shape) > 1):
+    if len(audio.shape) > 1:
         audio = np.mean(audio, axis=-1)
-    audioLengthSeconds = audio.size/samplingRate
+    audioLengthSeconds = audio.size / samplingRate
     
     shortage = 0
     excess = 0
@@ -34,14 +34,13 @@ def generate_audio_set(dataPath, line, audioLength):
     else:
         currentAudioEndTime = imageFrameTimeStamp + halfAudioLength
 
-    audioStartIndex = int(samplingRate*currentAudioStartTime)
-    audioEndIndex = int(samplingRate*currentAudioEndTime) - 1 #Subtracting 1 just to be safe with indices. 
-    currentAudio = audio[audioStartIndex:audioEndIndex]
-    shortageLength = int(samplingRate*shortage)
-    excessLength = int(samplingRate*excess)
+    audioStartIndex = int(samplingRate * currentAudioStartTime)
+    audioEndIndex = int(samplingRate * currentAudioEndTime) - 1 #Subtracting 1 just to be safe with indices.
+    currentAudio = audio[audioStartIndex: audioEndIndex]
+    shortageLength = int(samplingRate * shortage)
+    excessLength = int(samplingRate * excess)
     currentAudio = np.pad(currentAudio, (shortageLength, excessLength), mode='constant', constant_values=0)
     # audioSet[dataName] = audio
-
 
     return currentAudio
 
@@ -52,17 +51,19 @@ def load_audio(data, dataPath, audio = None):
     
     # fps is not always 25, in order to align the visual, we modify the window and step in MFCC extraction process based on fps
     audio = python_speech_features.mfcc(audio, 16000, numcep = 13, winlen = 0.025 * 25 / fps, winstep = 0.010 * 25 / fps)
-    # maxAudio = int(numFrames * 4)
-    # if audio.shape[0] < maxAudio:
-    #     shortage    = maxAudio - audio.shape[0]
-    #     audio     = numpy.pad(audio, ((0, shortage), (0,0)), 'wrap')
-    # audio = audio[:int(round(numFrames * 4)),:]  
+    """
+    maxAudio = int(numFrames * 4)
+    if audio.shape[0] < maxAudio:
+        shortage    = maxAudio - audio.shape[0]
+        audio     = numpy.pad(audio, ((0, shortage), (0,0)), 'wrap')
+    audio = audio[:int(round(numFrames * 4)),:]  
+    """
     return audio
 
-def load_visual(data, dataPath, numImages, visualAug): 
-    dataName = data[0]
+def load_visual(data, dataPath, numImages, visualAug):
     videoName = data[0]
     entityID = data[7]
+
     faceFolderPath = os.path.join(dataPath, videoName, entityID)
     faceFiles = glob.glob("%s/*.jpg"%faceFolderPath)
     sortedFaceFiles = sorted(faceFiles, key=lambda data: (float(data.split('/')[-1][:-4])), reverse=False) 
@@ -70,8 +71,7 @@ def load_visual(data, dataPath, numImages, visualAug):
     currentFaceFilePath = os.path.join(faceFolderPath, "%.2f"%float(data[1])+".jpg")
     halfNumImages = numImages // 2
 
-    shortage = 0
-    excess = 0
+    shortage, excess = 0, 0
 
     currentImageIndex = sortedFaceFiles.index(currentFaceFilePath)
     if numImages == 1:
@@ -92,32 +92,29 @@ def load_visual(data, dataPath, numImages, visualAug):
 
     faces = []
     H = 112
-    if visualAug == True:
-        new = int(H*random.uniform(0.7, 1))
+    if visualAug:
+        new = int(H * random.uniform(0.7, 1))
         x, y = numpy.random.randint(0, H - new), numpy.random.randint(0, H - new)
-        M = cv2.getRotationMatrix2D((H/2,H/2), random.uniform(-15, 15), 1)
-        augType = random.choice(['orig', 'flip', 'crop', 'rotate']) 
+        M = cv2.getRotationMatrix2D((H / 2,H / 2), random.uniform(-15, 15), 1)
+        augType = random.choice(['orig', 'flip', 'crop', 'rotate'])
     else:
         augType = 'orig'
+
     for faceFile in sortedFaceFiles[startIndex:endIndex]:
         face = cv2.imread(faceFile)
         face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
         face = cv2.resize(face, (H,H))
-        # face = (face - 128)/128
         if augType == 'orig':
             faces.append(face)
         elif augType == 'flip':
             faces.append(cv2.flip(face, 1))
         elif augType == 'crop':
-            faces.append(cv2.resize(face[y:y+new, x:x+new] , (H,H))) 
+            faces.append(cv2.resize(face[y: y + new, x : x + new] , (H, H))) # type: ignore
         elif augType == 'rotate':
             faces.append(cv2.warpAffine(face, M, (H,H)))
     faces = numpy.array(faces)
-    faces = faces.astype(np.float64)
-    faces = (faces - 128)/128
-    faces = np.pad(faces, ((shortage, excess), (0,0), (0,0)))
+    faces = np.pad(faces, ((shortage, excess), (0, 0), (0, 0)))
     return faces
-
 
 def load_label(data):
     res = []
@@ -126,71 +123,69 @@ def load_label(data):
     res = numpy.array(res)
     return res
 
-class train_loader(object):
+class TrainLoader:
     def __init__(self, trialFileName, audioPath, visualPath, batchSize, datasetPath, loadAudioSeconds, loadNumImages, **kwargs):
         trialFileName = trialFileName.replace('loader', 'labels')
         audioPath = audioPath.replace('clips', 'orig')
         self.audioPath  = audioPath
         self.visualPath = visualPath
-        #self.miniBatch = []      
         
-        self.mixLst = open(trialFileName).read().splitlines()
-        self.mixLst = self.mixLst[1:]
+        self.mixLst = open(trialFileName).read().splitlines()[1:] # since the first line contains column names
         self.sampleAudioLength = loadAudioSeconds
         self.sampleNumImages = loadNumImages
+
+        """
         # sort the training set by the length of the videos, shuffle them to make more videos in the same batch belong to different movies
-        # sortedMixLst = sorted(mixLst, key=lambda data: (int(data.split('\t')[1]), int(data.split('\t')[-1])), reverse=True)         
-        # start = 0        
-        # while True:
-        #   length = int(sortedMixLst[start].split('\t')[1])
-        #   end = min(len(sortedMixLst), start + max(int(batchSize / length), 1))
-        #   self.miniBatch.append(sortedMixLst[start:end])
-        #   if end == len(sortedMixLst):
-        #       break
-        #   start = end    
+        sortedMixLst = sorted(mixLst, key=lambda data: (int(data.split('\t')[1]), int(data.split('\t')[-1])), reverse=True)         
+        start = 0        
+        while True:
+            length = int(sortedMixLst[start].split('\t')[1])
+            end = min(len(sortedMixLst), start + max(int(batchSize / length), 1))
+            self.miniBatch.append(sortedMixLst[start:end])
+            if end == len(sortedMixLst):
+                break
+            start = end    
+        """
 
     def __getitem__(self, index):
         # batchList    = self.miniBatch[index]
         # numFrames   = int(batchList[-1].split('\t')[1])
-        #audioFeatures, visualFeatures, labels = [], [], []
+        # audioFeatures, visualFeatures, labels = [], [], []
         line = self.mixLst[index]
-        #audioSet = generate_audio_set(self.audioPath, batchList) # load the audios in this batch to do augmentation
+        # audioSet = generate_audio_set(self.audioPath, batchList) # load the audios in this batch to do augmentation
         audio = generate_audio_set(self.audioPath, line, self.sampleAudioLength) # load the audios in this batch to do augmentation
-        #for line in batchList:
+        # for line in batchList:
         data = line.split(',')            
         audioFeatures = load_audio(data, self.audioPath, audio=audio)  
         visualFeatures = load_visual(data, self.visualPath, self.sampleNumImages, visualAug = True)
         labels = load_label(data)
         #print(numpy.array(audioFeatures).shape, numpy.array(visualFeatures).shape, numpy.array(labels).shape)
-        return torch.FloatTensor(audioFeatures), \
-               torch.FloatTensor(visualFeatures), \
-               torch.LongTensor(labels)        
+        return torch.FloatTensor(audioFeatures), torch.FloatTensor(visualFeatures), torch.LongTensor(labels)
 
     def __len__(self):
         return len(self.mixLst)
 
 
-class val_loader(object):
+class ValLoader:
     def __init__(self, trialFileName, audioPath, visualPath, datasetPath, loadAudioSeconds, loadNumImages, **kwargs):
         trialFileName = trialFileName.replace('loader', 'labels')
         audioPath = audioPath.replace('clips', 'orig')
-        self.audioPath  = audioPath
+        self.audioPath = audioPath
         self.visualPath = visualPath
-        self.miniBatch = open(trialFileName).read().splitlines()
-        self.miniBatch = self.miniBatch[1:]
+        self.miniBatch = open(trialFileName).read().splitlines()[1:] # since the first line contains column names
         self.sampleAudioLength = loadAudioSeconds
         self.sampleNumImages = loadNumImages
 
         self.dataPathAVA = datasetPath
 
     def __getitem__(self, index):
-        line       = self.miniBatch[index]
+        line = self.miniBatch[index]
         #numFrames  = int(line[0].split('\t')[1])
-        audio   = generate_audio_set(self.audioPath, line, self.sampleAudioLength)        
+        audio = generate_audio_set(self.audioPath, line, self.sampleAudioLength)
         data = line.split(',')
         audioFeatures = load_audio(data, self.audioPath, audio = audio)
         visualFeatures = load_visual(data, self.visualPath,self.sampleNumImages, visualAug = False)
-        labels = load_label(data)         
+        labels = load_label(data)
         return torch.FloatTensor(audioFeatures), torch.FloatTensor(visualFeatures), torch.LongTensor(labels)
 
     def __len__(self):

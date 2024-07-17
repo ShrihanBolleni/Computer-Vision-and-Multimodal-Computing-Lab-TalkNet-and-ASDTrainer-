@@ -41,7 +41,7 @@ def load_visual(data, dataPath, numFrames, visualAug):
     faces = []
     H = 112
     if visualAug == True:
-        new = int(H*random.uniform(0.7, 1))
+        new = int(H * random.uniform(0.7, 1))
         x, y = numpy.random.randint(0, H - new), numpy.random.randint(0, H - new)
         M = cv2.getRotationMatrix2D((H/2,H/2), random.uniform(-15, 15), 1)
         augType = random.choice(['orig', 'flip', 'crop', 'rotate']) 
@@ -72,7 +72,7 @@ def load_label(data, numFrames):
     res = numpy.array(res[:numFrames])
     return res
 
-class train_loader(object):
+class TrainLoader(object):
     def __init__(self, trialFileName, audioPath, visualPath, batchSize, datasetPath, **kwargs):
         self.audioPath  = audioPath
         self.visualPath = visualPath
@@ -110,7 +110,7 @@ class train_loader(object):
         return len(self.miniBatch)
 
 
-class val_loader(object):
+class ValLoader(object):
     def __init__(self, trialFileName, audioPath, visualPath, datasetPath, **kwargs):
         self.audioPath  = audioPath
         self.visualPath = visualPath

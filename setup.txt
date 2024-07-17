@@ -1,0 +1,77 @@
+# Setup steps to train with AVDIAR-ASD
+
+# Path Names
+The default code for TalkNet hardcodes the names of files/directories to 11 characters long,
+which would cut off the last 2 letters in AVDIAR-ASD names creating FileNotFound errors, 
+or meaning that the program does not read the files, returning blank data.
+to fix this, change the [:11] to [:13] in lines 9 and 51 in the file dataLoader.py.
+
+# Getting mAP
+Running the TalkNet code to get model performance on evaluation datasets will return an IndexError:
+
+Traceback (most recent call last):
+
+  File "some/directory/path/trainTalkNet.py", line 85, in <module>
+
+    main()
+
+  File "some/directory/path/trainTalkNet.py", line 51, in main
+
+    mAP = s.evaluate_network(loader = valLoader, **vars(args))
+
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  File "some/directory/path/talkNet.py", line 75, in evaluate_network
+
+    mAP = float(str(subprocess.run(cmd, shell=True, capture_output =True).stdout).split(' ')[2][:5])
+
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+
+IndexError: list index out of range
+
+Printing mAP gives a not-helpful looking output of b'', which actually is the byte representation of an empty string (''),
+as the TalkNet code runs a subprocess, which returns output in bytes, not regular strings, meaning that
+stdout had no output.
+
+removing any splitting and indexing in this line:
+mAP = float(str(subprocess.run(cmd, shell=True, capture_output =True).stdout).split(' ')[2][:5])
+
+and changing the subprocess.run function to extract stderr instead allows us to see that the subprocess
+exited because of a runtime error caused by the use of a deprecated feature in numpy:
+Traceback (most recent call last):
+  File "some/directory/path/utils/get_ava_active_speaker_performance.py", line 239, in <module>
+    print(main())
+          ^^^^^^
+  File "some/directory/path/utils/get_ava_active_speaker_performance.py", line 232, in main
+    mAP = run_evaluation(**vars(args))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "some/directory/path/utils/get_ava_active_speaker_performance.py", line 197, in run_evaluation
+    mAP = 100 * compute_average_precision(precision, recall)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "some/directory/path/utils/get_ava_active_speaker_performance.py", line 44, in compute_average_precision
+    if precision.dtype != np.float or recall.dtype != np.float:
+                          ^^^^^^^^
+  File "working/directory/path/.venv/lib/python3.11/site-packages/numpy/__init__.py", line 394, in __getattr__
+    raise AttributeError(__former_attrs__[attr])
+AttributeError: module 'numpy' has no attribute 'float'.
+`np.float` was a deprecated alias for the builtin `float`. To avoid this error in existing code, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+The aliases was originally deprecated in NumPy 1.20; for more details and guidance see the original release note at:
+    https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations. Did you mean: 'float16'?
+
+As the error message describes, the issue lies in their use of np.float, which can be fixed by 
+changing all occurrences in utils/get_ava_active_speaker_performance.py to either np.float64 or float.
+More specifically, there are 2 occurrences on line 43 which cause this issue.
+
+# System Specific Issues
+In some systems, like my WSL2 system, running programs with "python" in the command line
+might return an error: Command 'python' not found
+In my system, the way to run programs is to use "python3". To test if this is the case for you,
+run "python --version" and "python3 --version". If the former runs without any errors, no further changes
+need to be made to the TalkNet code. If the former does not work and the latter does, navigate to
+line 74 in TalkNet.py and add a 3 to the end of python in the string:
+cmd = "python3 -O utils/get_ava_active_speaker_performance.py -g %s -p %s "%(evalOrig, evalCsvSave)
+
+# Blank Audio
+Some audio clips in the AVDIAR_ASD dataset have length of 1, meaning that audio is not read for them
+since this code shortens every audio clip by a length of 1. To fix this, go to train_loader and delete
+lines where "[1]" occurs
